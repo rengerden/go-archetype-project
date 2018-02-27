@@ -2,9 +2,16 @@ package main
 
 import (
 	"testing"
-	"fmt"
 )
 
 func Test_Main(t *testing.T) {
-	fmt.Println("Hello Test!")
+
+	R := []ReqExecutor {ReqExecutorImplA{}, ReqExecutorImplB{}}
+	for _, r := range R {
+		res, _ := r.GetCountry("8.8.8.8")
+		if res != "United States" {
+			t.Fail()
+		}
+	}
 }
+

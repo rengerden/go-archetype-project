@@ -1,0 +1,5 @@
+{
+  "CacheTTL": 5,
+  "Providers": ["1", "2"],
+  "LimitRPM": 60
+}
