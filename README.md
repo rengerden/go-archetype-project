@@ -39,3 +39,4 @@ Params:
 
 TODO:
 * limit concurrency of Handler  using semaphore emulation technique
+* create ReqExecutor for simulation of geoip provider
