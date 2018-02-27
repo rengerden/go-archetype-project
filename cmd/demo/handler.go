@@ -5,20 +5,22 @@ import (
 	"sync"
 )
 
-type Handler struct {
+type ProvHandler struct {
 	mu         sync.Mutex
 	deadline   time.Time
 	counterRPM int
 
-	next     *Handler
+	next     *ProvHandler
 	executor ReqExecutor // delegate
 }
 
-func newHandler(e ReqExecutor) *Handler {
-	return &Handler{executor: e}
+func newHandler(e ReqExecutor) *ProvHandler {
+	return &ProvHandler{
+		executor: e,
+	}
 }
 
-func (h *Handler) isAvailable(countReq bool) (res bool) {
+func (h *ProvHandler) isAvailable(countReq bool) (res bool) {
 	h.mu.Lock()
 	if time.Now().After(h.deadline) {
 		h.deadline = time.Now().Add(1 * time.Minute)
@@ -34,9 +36,10 @@ func (h *Handler) isAvailable(countReq bool) (res bool) {
 	return
 }
 
-func (h *Handler) GetCountry(ip string) (string, bool) {
+func (h *ProvHandler) GetCountry(ip string) (string, bool) {
 	if !h.isAvailable(false) {
 		return "", false
 	}
+
 	return h.executor.GetCountry(ip)
 }

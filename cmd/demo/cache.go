@@ -34,6 +34,7 @@ func (c *Cache) Set(key string, value string) {
 		value,
 	}
 	c.mu.Unlock()
+	//l.Debug("cache set", key, value)
 }
 
 func (c *Cache) Get(key string) (ret string, ok bool) {
@@ -50,5 +51,7 @@ func (c *Cache) Get(key string) (ret string, ok bool) {
 		}
 	}
 	c.mu.Unlock()
+	//l.Debug("cache get", key, ret, ok)
+
 	return
 }
