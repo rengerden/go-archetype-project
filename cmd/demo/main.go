@@ -66,7 +66,7 @@ func PrepareProvHandlers() {
 	}
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func httpHandler(w http.ResponseWriter, r *http.Request) {
 	country, ok := ResolveCountry(r.RemoteAddr)
 	if ok {
 		w.Write([]byte(country))
@@ -88,7 +88,8 @@ func main() {
 	cache = newCache(cfg.CacheTTL)
 	PrepareProvHandlers()
 
-	http.HandleFunc("/", handler)
+	http.HandleFunc("/", httpHandler)
+	l.Info("Listening ..")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 
 	return

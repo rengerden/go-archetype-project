@@ -44,6 +44,9 @@ $(BINARY):
 	$(ENV) $(GO) generate "dev.rubetek.com/go-archetype-project/pkg/logger"
 	$(ENV) $(GO) install -v $(LDFLAGS) ./cmd/$(BINARY)
 
+run-$(BINARY):
+	$(GOBIN)/$(BINARY)
+
 clean:
 	rm -fr build/_workspace/pkg/ $(GOBIN)/*
 
