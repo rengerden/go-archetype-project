@@ -13,4 +13,6 @@ Golang archetype project with following features:
 Makefile rules
 * make get-deps
 * make demo
-* make lint 
+* make lint
+
+To build the project place it in ~/go/src/dev.rubitek.com/go-archetype-project/
