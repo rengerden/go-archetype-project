@@ -23,20 +23,23 @@ To run
 * make demo
 * make run-demo
 
-
-Params:
+```Params:
 {
   // cache expire TTL, [minutes]
   "cacheTTL": 5,
-
+  
   // only 2 providers available, and 2 stubs for tests: test1, test2
   "providers": ["http://freegeoip.net", "http://geoip.nekudo.com"],
-
-  // limit requests per minute per provider
+  
+  // limit requests per minute
   "limitRPM": 60
+  
+  // limit concurrency, 
+  // lower concurrency yields lowers cache misses, but higher latency
+  Concurrency: 10
 }
-
+```
 
 TODO:
-* limit concurrency of Handler  using semaphore emulation technique
-* create ReqExecutor for simulation of geoip provider
+* ~~limit concurrency of Handler using semaphore emulation technique~~
+* ~~create ReqExecutor for simulation of geoip-provider~~

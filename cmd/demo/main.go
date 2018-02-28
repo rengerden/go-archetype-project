@@ -21,7 +21,6 @@ type Ctx struct {
 }
 
 var concurrency = 5
-//var semaChan = make(chan struct{}, concurrency)
 
 func (c *Ctx) ChooseHandler() *Handler {
 	c.mu.Lock()
@@ -41,9 +40,10 @@ func (c *Ctx) ChooseHandler() *Handler {
 }
 
 func (c *Ctx) ResolveCountry(ip string) (country string, ok bool) {
-	c.sem <- struct{}{}
+	if c.cfg.Concurrency > 0 {
+		c.sem <- struct{}{}
+	}
 
-	//l.Debug("ResolveCountry >")
 	country, ok = c.cache.Get(ip)
 	if !ok {
 		h := c.ChooseHandler()
@@ -53,8 +53,9 @@ func (c *Ctx) ResolveCountry(ip string) (country string, ok bool) {
 		}
 	}
 
-	<-c.sem
-	//l.Debug("ResolveCountry >>> end")
+	if c.cfg.Concurrency > 0 {
+		<-c.sem
+	}
 	return
 }
 

@@ -4,5 +4,6 @@
     "http://freegeoip.net",
     "http://geoip.nekudo.com"
   ],
-  "limitRPM": 60
+  "limitRPM": 60,
+  "concurrency": 20
 }
