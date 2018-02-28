@@ -6,6 +6,7 @@ import (
 	"sync"
 	"log"
 	"net/http"
+	"sync/atomic"
 )
 
 var l logger.Logger
@@ -13,14 +14,16 @@ var ctx *Ctx
 
 type Ctx struct {
 	cache          Cache
-	handlers       []*Handler
 	cfg            Config
 	mu             sync.Mutex
+
+	handlers       []*Handler
 	currentHandler *Handler
 	sem            chan struct{}
-}
 
-var concurrency = 5
+	countReqTotal uint64
+	countReqFail  uint64
+}
 
 func (c *Ctx) ChooseHandler() *Handler {
 	c.mu.Lock()
@@ -29,6 +32,8 @@ func (c *Ctx) ChooseHandler() *Handler {
 		if h.isAvailable(true) {
 			break
 		}
+
+		//l.Debug("ChooseHandler > choose next", atomic.LoadUint64(&c.countReqTotal))
 		h = h.next
 		if h == c.currentHandler { // full cycle, we should stop
 			break
@@ -40,7 +45,8 @@ func (c *Ctx) ChooseHandler() *Handler {
 }
 
 func (c *Ctx) ResolveCountry(ip string) (country string, ok bool) {
-	if c.cfg.Concurrency > 0 {
+	atomic.AddUint64(&c.countReqTotal, 1)
+	if c.cfg.LimitConcurrency > 0 {
 		c.sem <- struct{}{}
 	}
 
@@ -50,10 +56,12 @@ func (c *Ctx) ResolveCountry(ip string) (country string, ok bool) {
 		country, ok = h.GetCountry(ip)
 		if ok {
 			c.cache.Set(ip, country)
+		} else {
+			atomic.AddUint64(&c.countReqFail, 1)
 		}
 	}
 
-	if c.cfg.Concurrency > 0 {
+	if c.cfg.LimitConcurrency > 0 {
 		<-c.sem
 	}
 	return
@@ -61,10 +69,10 @@ func (c *Ctx) ResolveCountry(ip string) (country string, ok bool) {
 
 func (c *Ctx) InitializeProvHandlers() {
 	var prev *Handler
-	for _, pName := range c.cfg.Providers {
+	for id, pName := range c.cfg.Providers {
 		p, ok := requesterMap[pName]
 		if ok {
-			h := newHandler(p, c.cfg.LimitRPM)
+			h := newHandler(p, c.cfg.LimitRPP, id+1, c.cfg.PeriodMs)
 			if prev != nil {
 				prev.next = h
 			}
@@ -88,6 +96,14 @@ func httpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func newContext(cfg Config) *Ctx{
+	return &Ctx{
+		cfg: cfg,
+		sem: make(chan struct{}, cfg.LimitConcurrency),
+		cache: newCache(cfg.CacheTTL),
+	}
+}
+
 func main() {
 	var err error
 	l, _ = logger.NewLogger( syslog.Priority(logger.L_INFO), "demo")
@@ -97,16 +113,11 @@ func main() {
 		l.Info("GetConfig error:", err)
 		return
 	}
-	ctx = &Ctx{
-		cfg: cfg,
-		sem: make(chan struct{}, concurrency),
-		cache: newCache(cfg.CacheTTL),
-	}
+	ctx = newContext(cfg)
 	ctx.InitializeProvHandlers()
 
 	http.HandleFunc("/", httpHandler)
 	l.Info("Listening ..")
 	log.Fatal(http.ListenAndServe(":8080", nil))
-
 	return
 }

@@ -6,35 +6,41 @@ import (
 )
 
 type Handler struct {
+	id int
+
 	mu         sync.Mutex
 	deadline   time.Time
 	counterRPM int
+	limitRPP   int
+	periodMS   int
 
 	next      *Handler
 	requester Requester // delegate
-
-	limitRPM  int
-	//sem       chan struct{}
 }
 
-func newHandler(e Requester, limitRPM int) *Handler {
-	const concurrencyLevel = 2
-
+func newHandler(e Requester, limitRPP int, id int, periodMS int) *Handler {
 	return &Handler{
+		id:        id,
 		requester: e,
-		limitRPM: limitRPM,
-		//sem: make(chan struct{}, concurrencyLevel),
+		limitRPP:  limitRPP,
+		periodMS:  periodMS,
 	}
 }
 
 func (h *Handler) isAvailable(countReq bool) (res bool) {
 	h.mu.Lock()
 	if time.Now().After(h.deadline) {
-		h.deadline = time.Now().Add(1 * time.Minute)
+		//l.Debug("reset counter", h.id, h.counterRPM)
+		h.deadline = time.Now().Add(time.Duration(h.periodMS) * time.Millisecond)
+		h.counterRPM = h.limitRPP
+		res = true
 	} else {
-		if h.counterRPM < h.limitRPM {
+		if countReq {
+			//l.Debug("check", h.id, h.counterRPM, h.limitRPP, h.counterRPM < h.limitRPP)
+		}
+		if h.counterRPM > 0 {
 			if countReq {
-				h.counterRPM++
+				h.counterRPM--
 			}
 			res = true
 		}
@@ -47,10 +53,6 @@ func (h *Handler) GetCountry(ip string) (string, bool) {
 	if !h.isAvailable(false) {
 		return "", false
 	}
-
-	//h.sem <- struct{}{}
 	res, ok := h.requester.GetCountry(ip)
-	//<- h.sem
-
 	return res, ok
 }

@@ -8,8 +8,8 @@ import (
 	"log"
 	"net/http"
 	"time"
-	"strconv"
 	"math/rand"
+	"strconv"
 )
 
 var testData = map[string]string {
@@ -17,14 +17,14 @@ var testData = map[string]string {
 	"1.1.1.1": "Australia",
 }
 
-func dumbCountryResolver(ip string) string {
+func countryResolver(ip string) string {
 	return testData[ip]
 }
 
-func httpTestHandler(w http.ResponseWriter, r *http.Request) {
+func providerSimulatorHandler(w http.ResponseWriter, r *http.Request) {
 	ip := r.URL.Query()["ip"][0]
-	l.Debug("req", r.URL.Path, ip)
-	c := dumbCountryResolver(ip)
+	//l.Debug("req", r.URL.Path, ip)
+	c := countryResolver(ip)
 	if c != "" {
 		time.Sleep((10 + time.Duration(rand.Intn(50))) * time.Millisecond)
 		w.Write([]byte(c))
@@ -37,14 +37,14 @@ func httpTestHandler(w http.ResponseWriter, r *http.Request) {
 func init () {
 	l, _ = logger.NewLogger( syslog.Priority(logger.L_INFO), "demo")
 
-	http.HandleFunc("/", httpTestHandler)
-	l.Info("Test Listening ..")
+	http.HandleFunc("/", providerSimulatorHandler)
+	l.Info("Provider simulator listening ..")
 	go func() {
 		log.Fatal(http.ListenAndServe(":8081", nil))
 	}()
 
 	// generate test data
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		testData["ip-" + strconv.Itoa(i)] = "country-" + strconv.Itoa(i)
 	}
 }
@@ -74,16 +74,14 @@ func Test_Requestor(t *testing.T) {
 
 func Test_Main(t *testing.T) {
 	cfg := Config {
-		CacheTTL: 5,
-		LimitRPM: 100,
-		Providers: []string{"test1", "test2"},
-		Concurrency: 10, // 50
+		CacheTTL:         5,
+		LimitRPP:         40,
+		PeriodMs:         250,
+		Providers:        []string{"test1", "test2"},
+		LimitConcurrency: 4,
 	}
-	ctx = &Ctx{
-		cfg: cfg,
-		sem: make(chan struct{}, cfg.Concurrency),
-		cache: newCache(cfg.CacheTTL),
-	}
+
+	ctx = newContext(cfg)
 	ctx.InitializeProvHandlers()
 
 	keysTestData := make([]string, 0)
@@ -93,15 +91,15 @@ func Test_Main(t *testing.T) {
 
 	l.Info("Start")
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 100; i++ {
 		for j := 0; j < len(testData); j++ {
-			k := keysTestData[rand.Intn(len(testData))]
-			v := testData[k]
+			randomIP := keysTestData[rand.Intn(len(testData))]
+			country := testData[randomIP]
 
 			wg.Add(1)
 			go func() {
-				c, ok := ctx.ResolveCountry(k)
-				if c != v && ok {
+				c, ok := ctx.ResolveCountry(randomIP)
+				if c != country && ok {
 					t.Fail()
 				}
 				wg.Done()
@@ -109,6 +107,7 @@ func Test_Main(t *testing.T) {
 		}
 	}
 	wg.Wait()
-	l.Debug_f(`Cache miss ratio %d %%`, ctx.cache.GetMissRatio())
+	l.Debug_f(`Cache miss ratio: %d %%`, ctx.cache.GetMissRatio())
+	l.Debug_f(`Requests (ok / failed): %d / %d`, ctx.countReqTotal, ctx.countReqFail)
 }
 

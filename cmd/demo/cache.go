@@ -15,8 +15,8 @@ type Cache struct {
 	state  map[string]Record
 	ttl    time.Duration
 
-	ratioMiss int
-	ratioSum int
+	ratioMiss  int
+	ratioTotal int
 }
 
 func newCache(ttl int) (c Cache) {
@@ -37,14 +37,11 @@ func (c *Cache) Set(key string, value string) {
 		value,
 	}
 	c.mu.Unlock()
-	//l.Debug("cache set", key, value)
 }
 
 func (c *Cache) Get(key string) (ret string, ok bool) {
-	var rec Record
-
 	c.mu.Lock()
-	rec, ok = c.state[key]
+	rec, ok := c.state[key]
 	if ok {
 		if time.Now().After(rec.deadline) {
 			delete(c.state, key)
@@ -56,18 +53,14 @@ func (c *Cache) Get(key string) (ret string, ok bool) {
 	if !ok {
 		c.ratioMiss++
 	}
-	c.ratioSum++
-
+	c.ratioTotal++
 	c.mu.Unlock()
-	//l.Debug("cache get", key, ret, ok)
 	return
 }
 
 func (c *Cache) GetMissRatio() (res int) {
-	if c.ratioSum > 0 {
-		res = c.ratioMiss * 100 / c.ratioSum
-	} else {
-		//res = -1
+	if c.ratioTotal > 0 {
+		res = c.ratioMiss * 100 / c.ratioTotal
 	}
 	return
 }

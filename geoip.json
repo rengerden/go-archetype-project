@@ -1,9 +1,10 @@
 {
   "cacheTTL": 5,
   "providers": [
-    "http://freegeoip.net",
-    "http://geoip.nekudo.com"
+    "freegeoip.net",
+    "geoip.nekudo.com"
   ],
-  "limitRPM": 60,
-  "concurrency": 20
+  "limitRPP": 40,
+  "periodMs": 250,
+  "limitConcurrency": 4
 }
