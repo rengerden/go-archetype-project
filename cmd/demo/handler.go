@@ -5,27 +5,34 @@ import (
 	"sync"
 )
 
-type ProvHandler struct {
+type Handler struct {
 	mu         sync.Mutex
 	deadline   time.Time
 	counterRPM int
 
-	next     *ProvHandler
-	executor ReqExecutor // delegate
+	next      *Handler
+	requester Requester // delegate
+
+	limitRPM  int
+	//sem       chan struct{}
 }
 
-func newHandler(e ReqExecutor) *ProvHandler {
-	return &ProvHandler{
-		executor: e,
+func newHandler(e Requester, limitRPM int) *Handler {
+	const concurrencyLevel = 2
+
+	return &Handler{
+		requester: e,
+		limitRPM: limitRPM,
+		//sem: make(chan struct{}, concurrencyLevel),
 	}
 }
 
-func (h *ProvHandler) isAvailable(countReq bool) (res bool) {
+func (h *Handler) isAvailable(countReq bool) (res bool) {
 	h.mu.Lock()
 	if time.Now().After(h.deadline) {
 		h.deadline = time.Now().Add(1 * time.Minute)
 	} else {
-		if h.counterRPM < cfg.LimitRPM {
+		if h.counterRPM < h.limitRPM {
 			if countReq {
 				h.counterRPM++
 			}
@@ -36,10 +43,14 @@ func (h *ProvHandler) isAvailable(countReq bool) (res bool) {
 	return
 }
 
-func (h *ProvHandler) GetCountry(ip string) (string, bool) {
+func (h *Handler) GetCountry(ip string) (string, bool) {
 	if !h.isAvailable(false) {
 		return "", false
 	}
 
-	return h.executor.GetCountry(ip)
+	//h.sem <- struct{}{}
+	res, ok := h.requester.GetCountry(ip)
+	//<- h.sem
+
+	return res, ok
 }

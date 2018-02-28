@@ -7,9 +7,10 @@ import (
 
 
 type Config struct {
-	CacheTTL  int
-	Providers []string
-	LimitRPM  int
+	CacheTTL    int
+	Providers   []string
+	LimitRPM    int
+	Concurrency int
 }
 
 func GetConfig(configPath string) (cfg Config, err error) {

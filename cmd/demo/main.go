@@ -8,71 +8,82 @@ import (
 	"net/http"
 )
 
-var (
-	l logger.Logger
+var l logger.Logger
+var ctx *Ctx
 
-	cache              Cache
-	handlers           []*ProvHandler
-	cfg                Config
-	mu                 sync.Mutex
-	currentProvHandler *ProvHandler
-)
+type Ctx struct {
+	cache          Cache
+	handlers       []*Handler
+	cfg            Config
+	mu             sync.Mutex
+	currentHandler *Handler
+	sem            chan struct{}
+}
 
-func ChooseProvHandler() *ProvHandler {
-	mu.Lock()
-	h := currentProvHandler
+var concurrency = 5
+//var semaChan = make(chan struct{}, concurrency)
+
+func (c *Ctx) ChooseHandler() *Handler {
+	c.mu.Lock()
+	h := c.currentHandler
 	for {
 		if h.isAvailable(true) {
 			break
 		}
 		h = h.next
-		if h == currentProvHandler { // full cycle, we should stop
+		if h == c.currentHandler { // full cycle, we should stop
 			break
 		}
 	}
-	currentProvHandler = h
-	mu.Unlock()
+	c.currentHandler = h
+	c.mu.Unlock()
 	return h
 }
 
-func ResolveCountry(ip string) (country string, ok bool) {
-	country, ok = cache.Get(ip)
+func (c *Ctx) ResolveCountry(ip string) (country string, ok bool) {
+	c.sem <- struct{}{}
+
+	//l.Debug("ResolveCountry >")
+	country, ok = c.cache.Get(ip)
 	if !ok {
-		h := ChooseProvHandler()
+		h := c.ChooseHandler()
 		country, ok = h.GetCountry(ip)
 		if ok {
-			cache.Set(ip, country)
+			c.cache.Set(ip, country)
 		}
 	}
+
+	<-c.sem
+	//l.Debug("ResolveCountry >>> end")
 	return
 }
 
-func PrepareProvHandlers() {
-	var prev *ProvHandler
-	for _, pName := range cfg.Providers {
-		p, ok := ReqExecutors[pName]
+func (c *Ctx) InitializeProvHandlers() {
+	var prev *Handler
+	for _, pName := range c.cfg.Providers {
+		p, ok := requesterMap[pName]
 		if ok {
-			h := newHandler(p)
+			h := newHandler(p, c.cfg.LimitRPM)
 			if prev != nil {
 				prev.next = h
 			}
 			prev = h
-			handlers = append(handlers, h)
+			c.handlers = append(c.handlers, h)
 		}
 	}
 	if prev != nil {
-		prev.next = handlers[0]
-		currentProvHandler = handlers[0]
+		prev.next = c.handlers[0]
+		c.currentHandler = c.handlers[0]
 	}
 }
 
 func httpHandler(w http.ResponseWriter, r *http.Request) {
-	country, ok := ResolveCountry(r.RemoteAddr)
+	country, ok := ctx.ResolveCountry(r.RemoteAddr)
 	if ok {
 		w.Write([]byte(country))
 	} else {
-		w.Write([]byte("Unknown"))
 		w.WriteHeader(404)
+		w.Write([]byte("Unknown"))
 	}
 }
 
@@ -80,13 +91,17 @@ func main() {
 	var err error
 	l, _ = logger.NewLogger( syslog.Priority(logger.L_INFO), "demo")
 
-	cfg, err = GetConfig("./geoip.json")
+	cfg, err := GetConfig("./geoip.json")
 	if err != nil {
 		l.Info("GetConfig error:", err)
 		return
 	}
-	cache = newCache(cfg.CacheTTL)
-	PrepareProvHandlers()
+	ctx = &Ctx{
+		cfg: cfg,
+		sem: make(chan struct{}, concurrency),
+		cache: newCache(cfg.CacheTTL),
+	}
+	ctx.InitializeProvHandlers()
 
 	http.HandleFunc("/", httpHandler)
 	l.Info("Listening ..")

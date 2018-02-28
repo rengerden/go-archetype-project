@@ -1,5 +1,8 @@
 {
   "cacheTTL": 5,
-  "providers": ["http://freegeoip.net", "http://geoip.nekudo.com"],
+  "providers": [
+    "http://freegeoip.net",
+    "http://geoip.nekudo.com"
+  ],
   "limitRPM": 60
 }

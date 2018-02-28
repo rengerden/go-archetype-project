@@ -14,6 +14,9 @@ type Cache struct {
 	mu     sync.Mutex
 	state  map[string]Record
 	ttl    time.Duration
+
+	ratioMiss int
+	ratioSum int
 }
 
 func newCache(ttl int) (c Cache) {
@@ -50,8 +53,21 @@ func (c *Cache) Get(key string) (ret string, ok bool) {
 			ret = rec.value
 		}
 	}
+	if !ok {
+		c.ratioMiss++
+	}
+	c.ratioSum++
+
 	c.mu.Unlock()
 	//l.Debug("cache get", key, ret, ok)
+	return
+}
 
+func (c *Cache) GetMissRatio() (res int) {
+	if c.ratioSum > 0 {
+		res = c.ratioMiss * 100 / c.ratioSum
+	} else {
+		//res = -1
+	}
 	return
 }
