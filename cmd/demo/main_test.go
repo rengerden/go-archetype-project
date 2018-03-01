@@ -10,6 +10,7 @@ import (
 	"time"
 	"math/rand"
 	"strconv"
+	"net"
 )
 
 var testData = map[string]string {
@@ -39,9 +40,12 @@ func init () {
 
 	http.HandleFunc("/", providerSimulatorHandler)
 	l.Info("Provider simulator listening ..")
-	go func() {
-		log.Fatal(http.ListenAndServe(":8081", nil))
-	}()
+
+	listener, err := net.Listen("tcp", ":8081")
+	if err != nil {
+		log.Fatal(err)
+	}
+	go http.Serve(listener, nil)
 
 	// generate test data
 	for i := 0; i < 10; i++ {

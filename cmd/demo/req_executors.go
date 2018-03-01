@@ -35,7 +35,7 @@ func (r RequesterImplA) GetCountry(ip string) (string, bool) {
 	dec.Decode(&v)
 
 	if resp.StatusCode != 200 {
-		fmt.Println("RequesterImplA >", resp.StatusCode)
+		//fmt.Println("RequesterImplA >", resp.StatusCode)
 	}
 	return v.Country.Name, resp.StatusCode == 200
 }
@@ -54,7 +54,7 @@ func (r RequesterImplB) GetCountry(ip string) (string, bool) {
 	dec.Decode(&v)
 
 	if resp.StatusCode != 200 {
-		fmt.Println("RequesterImplB >", resp.StatusCode)
+		//fmt.Println("RequesterImplB >", resp.StatusCode)
 	}
 	return v.Country_name, resp.StatusCode == 200
 }
@@ -67,14 +67,13 @@ func (r RequesterImplTest1) GetCountry(ip string) (string, bool) {
 	url := "http://localhost:8081/s1?ip=" + ip
 	resp, err := http.Get(url)
 	if err != nil {
-		fmt.Println("RequesterImplTest1 >", err)
 		return "", false
 	}
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
 
 	if resp.StatusCode != 200 {
-		fmt.Println("RequesterImplTest1 >", resp.StatusCode)
+		//fmt.Println("RequesterImplTest1 >", resp.StatusCode)
 	}
 	return string(body), resp.StatusCode == 200
 }
@@ -83,14 +82,13 @@ func (r RequesterImplTest2) GetCountry(ip string) (string, bool) {
 	url := "http://localhost:8081/s2?ip=" + ip
 	resp, err := http.Get(url)
 	if err != nil {
-		fmt.Println("RequesterImplTest2 >", err)
 		return "", false
 	}
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
 
 	if resp.StatusCode != 200 {
-		fmt.Println("RequesterImplTest2 >", resp.StatusCode)
+		//fmt.Println("RequesterImplTest2 >", resp.StatusCode)
 	}
 	return string(body), resp.StatusCode == 200
 }

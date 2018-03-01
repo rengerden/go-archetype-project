@@ -6,8 +6,8 @@ import (
 )
 
 type Record struct {
-	deadline    time.Time
-	value       string
+	expires time.Time
+	value   string
 }
 
 type Cache struct {
@@ -43,7 +43,7 @@ func (c *Cache) Get(key string) (ret string, ok bool) {
 	c.mu.Lock()
 	rec, ok := c.state[key]
 	if ok {
-		if time.Now().After(rec.deadline) {
+		if time.Now().After(rec.expires) {
 			delete(c.state, key)
 			ok = false
 		} else {
