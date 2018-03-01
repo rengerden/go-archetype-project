@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"io/ioutil"
-	"fmt"
 )
 
 type Requester interface {
@@ -14,8 +13,8 @@ type Requester interface {
 var requesterMap = map[string]Requester{
 	"geoip.nekudo.com": RequesterImplA{},
 	"freegeoip.net":    RequesterImplB{},
-	"test1":                   RequesterImplTest1{},
-	"test2":                   RequesterImplTest2{},
+	"test1":            RequesterImplTest1{},
+	"test2":            RequesterImplTest2{},
 }
 
 type RequesterImplA struct {}
