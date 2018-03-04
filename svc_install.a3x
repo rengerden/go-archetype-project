@@ -1,0 +1,36 @@
+#include <MsgBoxConstants.au3>
+#RequireAdmin
+
+Global $runRes = " "
+
+install()
+
+Func RunWait_($a)
+        $r = String(RunWait($a))
+	$runRes = $runRes & $r & " "
+	MsgBox($MB_SYSTEMMODAL, $runRes, $a)
+EndFunc
+
+Func install()
+
+	if not FileExists ("iton.sync.svc.exe") Then
+	endIf
+
+		FileChangeDir(@ScriptDir)
+		;MsgBox($MB_SYSTEMMODAL, "", @ScriptDir)	
+
+
+		RunWait ("net stop Carddex_IMS_sync")
+		RunWait ("nssm.exe remove Carddex_IMS_sync confirm")
+		RunWait ("nssm.exe install Carddex_IMS_sync " & @ScriptDir & "\iton.sync.svc.exe")
+		RunWait ("nssm set Carddex_IMS_sync AppDirectory " & @ScriptDir)
+
+		$r = RunWait ("net start Carddex_IMS_sync")
+		if $r == 0 then
+        		MsgBox($MB_SYSTEMMODAL, "ОК",  "Служба запущена")
+		else
+			MsgBox($MB_SYSTEMMODAL, "Ошибка",  "Ошибка запуска служба. Код: " & $r)
+		endIf
+		Exit
+
+EndFunc

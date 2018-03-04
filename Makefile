@@ -6,7 +6,7 @@ ENV=$(shell pwd)/build/env.sh
 GOBIN=$(shell pwd)/build/_workspace/bin
 PWD=$(shell pwd)
 
-BINARY = demo
+BINARY = iton.sync.svc
 PKG1 = "dev.rubetek.com/go-archetype-project/cmd/demo"
 PKG2 = "dev.rubetek.com/go-archetype-project/pkg/logger"
 PKGS = $(PKG1) $(PKG2)
