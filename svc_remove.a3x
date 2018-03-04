@@ -1,4 +1,4 @@
 #RequireAdmin
 
 RunWait ("nssm.exe stop Carddex_IMS_sync")
-RunWait ("nssm.exe remove Carddex_IMS_sync")    
+RunWait ("nssm.exe remove Carddex_IMS_sync")
