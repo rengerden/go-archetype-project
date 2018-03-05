@@ -1,21 +1,22 @@
 package iton_sync_svc
 
 import (
-	"time"
+	"bufio"
+	"database/sql"
+	"net/http"
 	"os"
 	"os/signal"
 	"reflect"
-	"database/sql"
-	"net/http"
-	"bufio"
-	"github.com/gin-gonic/gin"
-	_ "github.com/denisenkom/go-mssqldb"
-	"gopkg.in/ini.v1"
+	"runtime"
 	"runtime/debug"
 	"strconv"
+	"time"
+
 	"dev.rubetek.com/go-archetype-project/pkg/iton_sync_svc/foo"
 	"dev.rubetek.com/go-archetype-project/pkg/logger"
-	"runtime"
+	_ "github.com/denisenkom/go-mssqldb"
+	"github.com/gin-gonic/gin"
+	"gopkg.in/ini.v1"
 )
 
 var (
@@ -29,32 +30,32 @@ type DataObj interface {
 	CopyVal() DataObj
 }
 
-type TimeSheet_record struct {
-	Date      	foo.JsonUnixNsToTime		`json:"date"`       // of 1st enter (w/o time) 	//  compound key  !null
-	AccountId 	int				`json:"accountId"`              //  compound key, !null
-	EnterTime 	foo.JsonUnixNsToTime		`json:"enterTime"`	//
-	ExitTime  	foo.JsonUnixNsToTime		`json:"exitTime"`	//
-	TotalTime 	int				`json:"totalTime"`	            // sum of (TExit-TLastEnter)
+type TimeSheetRecord struct {
+	Date      foo.JsonUnixNsToTime `json:"date"`      // of 1st enter (w/o time) 	//  compound key  !null
+	AccountId int                  `json:"accountId"` //  compound key, !null
+	EnterTime foo.JsonUnixNsToTime `json:"enterTime"` //
+	ExitTime  foo.JsonUnixNsToTime `json:"exitTime"`  //
+	TotalTime int                  `json:"totalTime"` // sum of (TExit-TLastEnter)
 }
 
-func (p TimeSheet_record) CopyVal() DataObj {
+func (p TimeSheetRecord) CopyVal() DataObj {
 	return p
 }
 
 type Person struct {
-	Id         int			`json:"id"`
-	FirstName  foo.NullString	`json:"firstName"`
-	LastName   foo.NullString	`json:"lastName"`
-	MiddleName foo.NullString	`json:"middleName"`
-	CardNumber *int			`json:"cardNumber"`
-	Fired	   bool			`json:"fired"`
+	Id         int            `json:"id"`
+	FirstName  foo.NullString `json:"firstName"`
+	LastName   foo.NullString `json:"lastName"`
+	MiddleName foo.NullString `json:"middleName"`
+	CardNumber *int           `json:"cardNumber"`
+	Fired      bool           `json:"fired"`
 }
 
 func (p Person) CopyVal() DataObj {
 	return p
 }
 
-type LTimeSheet []TimeSheet_record
+type LTimeSheet []TimeSheetRecord
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 func handlerInterrupt() {
@@ -62,7 +63,7 @@ func handlerInterrupt() {
 	signal.Notify(sigChan, os.Interrupt)
 
 	go func() {
-		s := <- sigChan
+		s := <-sigChan
 		log.Info("Signal", s)
 		log.Info("Cleanup service")
 
@@ -71,7 +72,7 @@ func handlerInterrupt() {
 	}()
 }
 
-func closeDB () {
+func closeDB() {
 	err := db.Close()
 	if err != nil {
 		log.Info("closeDB err", err)
@@ -120,49 +121,17 @@ func QueryDB_(q string, do DataObj) ([]DataObj, error) {
 	return aRows, err
 }
 
-func QueryDB_simple(q string) error {
-	rows, err := db.Query(q)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	columns, _ := rows.Columns()
-	log.Debug(columns)
-
-	var values = make([]interface{}, len(columns))
-	for i := range values {
-		var ii interface{}
-		values[i] = &ii
-	}
-
-	for rows.Next() {
-		err := rows.Scan(values...)
-		if err != nil {
-			log.Info("row err >", err.Error())
-			return err
-		}
-		for i, colName := range columns {
-			var rawValue = *(values[i].(*interface{}))
-			var rawType = reflect.TypeOf(rawValue)
-			log.Info(colName, rawType, rawValue)
-		}
-	}
-	return nil
-}
-
 func mkdir_ine(path string) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		os.Mkdir(path, os.ModeDir|0777)
 	}
 }
 
-
 func Init() {
 	mkdir_ine("logs")
-	log,_ = logger.NewLogger(logger.LogLevelDebug, "svc", "file")
+	log, _ = logger.NewLogger(logger.LogLevelDebug, "svc", "file")
 
-	defer func () {
+	defer func() {
 		if r := recover(); r != nil {
 			log.Error("Recover", r)
 			log.Error(string(debug.Stack()))
@@ -201,7 +170,7 @@ func getPersonList(c *gin.Context) {
 		return
 	}
 	//printParams(c.Params)
-	var result gin.H = gin.H {
+	var result gin.H = gin.H{
 		"rows": rows,
 	}
 	c.JSON(http.StatusOK, result)
@@ -209,7 +178,7 @@ func getPersonList(c *gin.Context) {
 
 func getPersonPhoto(c *gin.Context) {
 	var img []byte
-	id,_ := strconv.Atoi(c.Param("id"))
+	id, _ := strconv.Atoi(c.Param("id"))
 	err := db.QueryRow("select Файл from ФайлыНабор where Сотрудник=:1", id).Scan(&img)
 	if err != nil {
 		log.Info("getPersonPhoto >", err)
@@ -221,7 +190,7 @@ func getPersonPhoto(c *gin.Context) {
 }
 
 func postTimeSheets(c *gin.Context) {
-	var l []TimeSheet_record
+	var l []TimeSheetRecord
 	err := c.BindJSON(&l)
 
 	if err == nil {
@@ -233,9 +202,9 @@ func postTimeSheets(c *gin.Context) {
 			return
 		}
 
-		for _,r := range l {
+		for _, r := range l {
 			_, err := stmt.Exec(r.EnterTime, r.ExitTime, r.TotalTime, r.Date, r.AccountId)
-			
+
 			if err != nil {
 				log.Info("postTimeSheets >", err)
 				tx.Rollback()
@@ -245,4 +214,3 @@ func postTimeSheets(c *gin.Context) {
 		tx.Commit()
 	}
 }
-
